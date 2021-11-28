@@ -32,11 +32,6 @@ node {
   sh 'mvn package'
  }
 
- stage('SonarQubeScan') {
-   withSonarQubeEnv('Sonar'){
-     sh 'mvn sonar:sonar'
-   }
- }
 
  stage('Build Management') {
 		def uploadSpec = """{ 
@@ -65,19 +60,10 @@ stage('Publish Build Info'){
  }
 
 
-
-
  stage('Docker Deployment') {
   sh 'docker-compose up -d --build'
  }
 
 
- stage('Getting Ready For Ansible Deployment') { 
-  sh "echo \'<h1>JENKINS TASK BUILD ID: ${env.BUILD_DISPLAY_NAME}</h1>\' > terraform-code/ansible-code/roles/petclinic/files/jenkins.html"
- }
-
- stage('Terraform Apply') {
-  sh 'cd terraform-code; terraform init ; terraform apply --auto-approve'
- }
  }
 }
