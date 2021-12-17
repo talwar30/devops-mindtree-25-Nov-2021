@@ -7,11 +7,11 @@ node {
  def buildInfo = Artifactory.newBuildInfo()
 
  // Project Path
- def project_path = "03-App-Code/petclinic-code"
+ def project_path = "08-Assignment/petclinic-code"
 
 
  stage('Git ChechOut') {
-  git branch: 'main', url: 'https://github.com/amitvashisttech/devops-mindtree-25-Nov-2021.git' 
+  git branch: 'main', url: 'https://github.com/talwar30/devops-mindtree-25-Nov-2021.git' 
  }
  
  dir(project_path) {
@@ -61,12 +61,12 @@ stage('Publish Build Info'){
  }
 
  stage('Getting Ready For Ansible Deployment'){
-     sh "echo \'<h1>JENKINS TASK BUILD ID: ${env.BUILD_DISPLAY_NAME}</h1>\' > terraform-code/ansible-code/roles/petclinic/files/jenkins.html"
+     sh "echo \'<h1>JENKINS TASK BUILD ID: ${env.BUILD_DISPLAY_NAME}</h1>\' > terraform-code/ansible-code/roles/wildfly-install/files/jenkins.html"
  }
 
  
  stage('Getting Ready For Ansible Deployment'){
-     sh "cp -rf target/petclinic.war terraform-code/ansible-code/roles/petclinic/files/"
+     sh "cp -rf target/petclinic.war terraform-code/ansible-code/roles/wildfly-install/files/"
  }
 
  stage('Terraform Deployment'){
