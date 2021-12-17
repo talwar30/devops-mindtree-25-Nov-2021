@@ -1,0 +1,122 @@
+---
+- block:
+    - name: create user for wildfly server
+      user:
+        name: "{{ wildfly_user }}"
+        shell: /bin/false
+        comment: "Wildfly User"
+    
+    - name: unzip and install java
+      apt:
+        name: 
+          - unzip
+          - default-jdk
+        state: present
+      
+    - name: check if java is installed
+      shell:
+        cmd: rpm -q java-1.8.0-openjdk
+      register: rpm_check
+      failed_when: rpm_check.rc == 1
+
+    - name: JBoss Home Dir in place
+      file: path={{doc_jboss}}/wildfly state=directory
+
+
+    - name: Download wildfly 
+      get_url:
+        url: "{{ https_uri }}"
+        dest: "{{doc_jboss}}/wildfly-24.0.1.Final.tar.gz"
+        mode: 0755
+
+    - name: Extract Tomcat TarBall
+      command: "unzip {{doc_jboss}}/wildfly-24.0.1.Final.tar.gz -d {{doc_jboss}}/wildfly/"
+      
+
+#    - name: create link for /opt/wildfly
+#      file:
+#        src: /{{wildfly_version}}  
+#        dest: /opt/wildfly
+#        state: link
+#        force: yes
+#    - file: 
+#        path: /opt/widfly
+#        owner: wildfly
+#        group: wildfly
+#        recurse: yes
+
+    - name: change owner to wildfly user
+      file:
+        path: /opt/wildfly/{{wildfly_version}}
+        owner: wildfly
+        group: wildfly
+        recurse: yes
+
+    - name: edit standalone.xml to run on server ip adress
+      replace:
+        dest: /opt/wildfly/wildfly-24.0.1.Final/standalone/configuration/standalone.xml
+        backup: yes
+        regexp: '127\.0\.0\.1'
+        replace: "{{ ansible_default_ipv4.address }}"
+ 
+    - name: add user and password
+      shell:
+        cmd: JBOSS_HOME='/opt/wildfly/wildfly-24.0.1.Final' /bin/bash -c '/opt/wildfly/wildfly-24.0.1.Final/bin/add-user.sh -u wildfly -p Welcome@1122'
+      register: wildfly_user
+    - debug:
+        msg: "{{ wildfly_user }}"
+
+    - name: run wildfly server as a service
+      copy:
+        src: "{{ item.src }}" 
+        dest: "{{ item.dest }}"
+        owner: wildfly
+        mode: "0744"
+        remote_src: yes
+      with_items:
+        - { src: /opt/wildfly/wildfly-24.0.1.Final/docs/contrib/scripts/init.d/wildfly-init-redhat.sh , dest: /etc/init.d/wildfly } 
+        - { src: /opt/wildfly/wildfly-24.0.1.Final/docs/contrib/scripts/init.d/wildfly.conf , dest: /etc/default } 
+
+    - name: change service file
+      replace:
+        dest: /etc/default/wildfly.conf
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+        backup: yes
+      with_items:  
+          - { regexp: '^# JBOSS_HOME\="\/opt\/wildfly"' , replace: 'JBOSS_HOME="/opt/wildfly/wildfly-24.0.1.Final"' }
+          - { regexp: '^# JBOSS_USER\=wildfly' , replace: 'JBOSS_USER=wildfly' }
+          - { regexp: '^# JBOSS_MODE\=standalone', replace: 'JBOSS_MODE=standalone' } 
+          - { regexp: '^# JBOSS_CONFIG\=standalone.xml', replace: 'JBOSS_CONFIG=standalone.xml' }
+          - { regexp: '^# STARTUP_WAIT\=60', replace: 'STARTUP_WAIT=60' } 
+          - { regexp: '^# SHUTDOWN_WAIT\=60', replace: 'SHUTDOWN_WAIT=60' } 
+
+    - name: Start Jboss App Server
+      command: /opt/wildfly/wildfly-24.0.1.Final/bin/standalone.sh
+      ignore_errors: yes
+#    - name: add wildfly to init.d
+#      command: "{{ item }}"
+#      with_items:
+#        - /usr/sbin/chkconfig --add /etc/init.d/wildfly
+#        - /usr/sbin/chkconfig --level 2345 wildfly on
+#        - systemctl daemon-reload
+
+
+#    - name: start wildfly
+#      systemd: 
+#        name: wildfly
+#        state: started
+#        enabled: true
+    - name: Deploy Jenkins Index Page
+      copy: src=files/petclinic.war dest=/opt/wildfly/wildfly-24.0.1.Final/standalone/deployments/
+    
+    - name: check if server is up on 8080
+      uri:
+        url: http://{{  server_url }}:8080
+        return_content: true
+      ignore_errors: yes
+      register: status_8080
+  
+    - debug:
+        msg: "{{ status_8080 }}"
+
